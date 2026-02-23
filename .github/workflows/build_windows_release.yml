@@ -1,0 +1,75 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build and Package for Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 1. Biên dịch Launcher (Rust)
+      - name: Build Launcher (Rust)
+        working-directory: ./Launcher
+        run: cargo build --release
+
+      # 2. Biên dịch Kernel (C++)
+      - name: Build Kernel (C++)
+        working-directory: ./Kernel
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+      # 3. Biên dịch Shell (C++)
+      - name: Build Shell (C++)
+        working-directory: ./Shell
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+      # 4. Biên dịch mã Script (TypeScript sang JavaScript)
+      - name: Setup Node.js & Compile TypeScript
+        working-directory: ./Script
+        run: |
+          npm install -g typescript
+          tsc
+
+      # 5. Lắp ráp các tệp vào một thư mục staging (Sen)
+      - name: Assemble Release Folder
+        run: |
+          # Tạo thư mục đóng gói
+          New-Item -ItemType Directory -Force -Path release\Sen
+          
+          # Copy các tệp thực thi và thư viện động (Cần điều chỉnh đường dẫn build nếu cấu hình CMake của bạn đặt output ở thư mục khác)
+          Copy-Item Launcher\target\release\Launcher.exe -Destination release\Sen\
+          Copy-Item Kernel\build\Release\Kernel.dll -Destination release\Sen\
+          Copy-Item Shell\build\Release\Shell.exe -Destination release\Sen\
+          
+          # Copy toàn bộ thư mục Script
+          Copy-Item -Recurse Script release\Sen\Script
+          
+          # Xóa các tệp mã nguồn TypeScript (.ts), chỉ giữ lại .js và .json trong bản release
+          Get-ChildItem -Path release\Sen\Script -Recurse -Filter *.ts | Remove-Item -Force
+          
+          # Xóa các tệp cấu hình không cần thiết của TypeScript/Dev
+          Remove-Item -Force release\Sen\Script\tsconfig.json -ErrorAction SilentlyContinue
+          Remove-Item -Force release\Sen\Script\README.md -ErrorAction SilentlyContinue
+          Remove-Item -Force release\Sen\Script\link.ps1 -ErrorAction SilentlyContinue
+
+      # 6. Nén thư mục thành file .zip
+      - name: Create ZIP Archive
+        working-directory: ./release
+        run: Compress-Archive -Path Sen -DestinationPath Sen-Windows.zip
+
+      # 7. Upload file .zip lên GitHub để tải về
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sen-Windows-Build
+          path: release/Sen-Windows.zip
