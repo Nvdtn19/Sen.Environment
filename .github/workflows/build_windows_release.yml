@@ -14,6 +14,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Kích hoạt môi trường Visual Studio 2022 (Command Prompt) để lấy cl.exe
+      - name: Setup MSVC (Visual Studio Compiler)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Build Launcher (Rust)
         working-directory: ./Launcher
         run: cargo build --release
