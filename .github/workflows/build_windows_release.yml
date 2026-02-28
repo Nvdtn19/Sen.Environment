@@ -49,14 +49,18 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release\Sen
           
+          # Copy Launcher
           Copy-Item Launcher\target\release\Launcher.exe -Destination release\Sen\
-          Copy-Item Kernel\build\*.dll -Destination release\Sen\
-          Copy-Item Shell\build\*.exe -Destination release\Sen\
           
+          # Recursively find and copy Kernel.dll
+          Get-ChildItem -Path Kernel\build -Recurse -Filter *.dll | Copy-Item -Destination release\Sen\
+          
+          # Recursively find and copy Shell.exe
+          Get-ChildItem -Path Shell\build -Recurse -Filter *.exe | Copy-Item -Destination release\Sen\
+          
+          # Copy and clean up Script folder
           Copy-Item -Recurse Script release\Sen\Script
-          
           Get-ChildItem -Path release\Sen\Script -Recurse -Filter *.ts | Remove-Item -Force
-          
           Remove-Item -Force release\Sen\Script\tsconfig.json -ErrorAction SilentlyContinue
           Remove-Item -Force release\Sen\Script\README.md -ErrorAction SilentlyContinue
           Remove-Item -Force release\Sen\Script\link.ps1 -ErrorAction SilentlyContinue
